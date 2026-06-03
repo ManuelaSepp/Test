@@ -474,7 +474,7 @@ textarea{
 
 .flow-content .next-row {
   display:flex;
-  justify-content:flex-end;
+  justify-content:flex-start;
   margin-top:12px;
 }
 
@@ -662,7 +662,9 @@ aside {
 
 
 #bericht{
-  min-height:calc(100vh - 290px);
+  min-height:500px;
+  max-height:75vh;
+  overflow-y:auto;
   width:100%;
   white-space:pre-wrap;
   border:1px solid #e2d6c9;
@@ -1394,6 +1396,84 @@ body.admin-mode #flow .flow-step .state::after{
   content:" · Admin";
 }
 
+
+/* MASTER V5m – Weiter-Button wirklich links unten */
+#flow .flow-content .next-row{
+  display:flex !important;
+  justify-content:flex-start !important;
+  align-items:center !important;
+}
+
+#flow .flow-content .next{
+  margin-left:0 !important;
+  margin-right:auto !important;
+}
+
+
+/* MASTER V5s – Eingaben löschen erst nach Kopieren */
+.actions #clearBtn:disabled{
+  opacity:.45 !important;
+  cursor:not-allowed !important;
+}
+
+ /* MASTER V5r – Kopieren sperren, solange Infekt-Angabe fehlt */
+.actions #copyBtn:disabled{
+  opacity:.45 !important;
+  cursor:not-allowed !important;
+  background:#c7c1ba !important;
+  border-color:#c7c1ba !important;
+  color:#ffffff !important;
+}
+
+
+/* MASTER V5t – Bericht wirklich manuell bearbeitbar */
+#bericht{
+  cursor:text !important;
+  user-select:text !important;
+}
+#bericht[contenteditable="true"]:focus{
+  background:#ffffff !important;
+  box-shadow:inset 0 0 0 2px rgba(123,170,158,.35) !important;
+}
+
+
+/* MASTER V6a – Infekte rot wenn geöffnet aber nicht beantwortet */
+#step-infekte.warn .flow-head .state{
+  background:#f2caca !important;
+  color:#8b1f1f !important;
+}
+
+
+/* MASTER V6b – Infekte-Warnstatus robust: ganze Kopfzeile rot */
+#flow #step-infekte.warn .flow-head{
+  background:#fde8e8 !important;
+  border-left:9px solid #d9534f !important;
+}
+#flow #step-infekte.warn .state{
+  background:#f2caca !important;
+  color:#8b1f1f !important;
+}
+
+
+/* MASTER V6c – Infekte Rotstatus final */
+#flow .flow-step#step-infekte.warn,
+#flow .flow-step#step-infekte.warn.visible,
+#flow .flow-step#step-infekte.warn.active,
+#flow .flow-step#step-infekte.warn.open{
+  border-color:#d9534f !important;
+}
+#flow .flow-step#step-infekte.warn .flow-head,
+#flow .flow-step#step-infekte.warn.visible:not(.done) .flow-head,
+#flow .flow-step#step-infekte.warn.active:not(.done) .flow-head,
+#flow .flow-step#step-infekte.warn.open:not(.done) .flow-head{
+  background:#fde8e8 !important;
+  border-left:9px solid #d9534f !important;
+}
+#flow .flow-step#step-infekte.warn .state{
+  background:#f2caca !important;
+  color:#8b1f1f !important;
+}
+
 </style>
 </head>
 <body>
@@ -1451,7 +1531,7 @@ body.admin-mode #flow .flow-step .state::after{
                 <div class="alk-card-title">Name Ansprechpartner/in</div>
                 <div class="dsk-note alk-meta-text">Leitfaden</div>
               </div>
-              <div class="dsk-sub alk-hint-text">Wird später für den Gesprächseinstieg genutzt.</div>
+              
             </div>
 
             <div class="dsk-item">
@@ -1525,9 +1605,9 @@ body.admin-mode #flow .flow-step .state::after{
               <div class="dsk-row">
                 <span class="flow-dot dot-yellow">2</span>
                 <div class="alk-card-title">Akt. Situation Kind</div>
-                <div class="dsk-note alk-meta-text">Leitfaden-Beginn</div>
+                <div class="dsk-note alk-meta-text">Leitfaden</div>
               </div>
-              <div class="dsk-sub alk-hint-text">Hier entscheidet sich später der weitere Verlauf.</div>
+              
             </div>
 
             <div class="dsk-item">
@@ -1592,7 +1672,7 @@ body.admin-mode #flow .flow-step .state::after{
         <div id="bericht" class="rep-content" contenteditable="true" spellcheck="true"></div>
         <div class="actions">
           <button class="primary rep-button-text" id="copyBtn" type="button">📋 Text kopieren und im Freitextfeld einfügen</button>
-          <button class="rep-button-text" id="clearBtn" type="button">Eingaben löschen</button>
+          <button class="rep-button-text" id="clearBtn" type="button" disabled>Eingaben löschen</button>
         </div>
         <div class="internal" id="debugInfo"></div>
       </div>
@@ -1606,6 +1686,8 @@ const startScreen=document.getElementById('startScreen');
 const app=document.getElementById('app');
 const msgUnklar=document.getElementById('msgUnklar');
 const msgNein=document.getElementById('msgNein');
+let berichtManuellBearbeitet = false;
+
 
 document.querySelectorAll('input[name="einverstaendnis"]').forEach(radio=>{
   radio.addEventListener('change',()=>{
@@ -1623,6 +1705,13 @@ document.getElementById('backBtn').addEventListener('click',()=>{
   msgUnklar.style.display='none';
   msgNein.style.display='none';
 });
+
+const berichtElInitial = document.getElementById('bericht');
+if (berichtElInitial) {
+  berichtElInitial.addEventListener('input', () => {
+    berichtManuellBearbeitet = true;
+  });
+}
 
 // Versteckte Admin-Ansicht: Strg + Shift + M
 document.addEventListener('keydown', (event) => {
@@ -2270,7 +2359,11 @@ function keineKinderAnDerHandAusgewaehlt() {
 }
 
 function updateGeschwisterBilderVisibility() {
-  const verstecken = keineKinderAnDerHandAusgewaehlt();
+  const bilderJa = isChecked('gemeinsame_bilder_gewuenscht') || isChecked('gemeinsame_bilder_kind');
+  const bilderNein = isChecked('gemeinsame_bilder_nein');
+  const bilderUnklar = isChecked('gemeinsame_bilder_unklar');
+  const verstecken = keineKinderAnDerHandAusgewaehlt() || bilderNein || bilderUnklar || !bilderJa;
+
   const field = document.getElementById('bilder_geschwister_field');
   if (field) field.classList.toggle('hidden', verstecken);
 
@@ -2320,11 +2413,6 @@ function artikelUndAdjektiv(rolleId, beschreibung) {
 function baueAnsprechpartner(verbraucht) {
   const rolle = selectedByGroup('ansprechpartner_rolle');
   const beschr = selectedByGroup('ansprechpartner_beschreibung');
-  const art = selectedByGroup('ansprechpartner_gespraechsart');
-
-  if (!rolle && !art) return '';
-
-  [rolle,beschr,art].filter(Boolean).forEach(k => verbraucht.add(k.id));
 
   const rolleId = rolle?.id || '';
   const adj = beschr && beschr.id !== 'keine_beschreibung'
@@ -2332,6 +2420,10 @@ function baueAnsprechpartner(verbraucht) {
     : '';
 
   let name = capitalise(inputValue('ansprechpartner_name'));
+
+  if (!rolle && !name) return '';
+
+  [rolle,beschr].filter(Boolean).forEach(k => verbraucht.add(k.id));
 
   const rollenGrammatik = {
     papa:                 { artikel: 'dem',   adjEndung: 'en', nomen: 'Papa',                 dr: false },
@@ -2375,11 +2467,7 @@ function baueAnsprechpartner(verbraucht) {
     person = 'jemandem';
   }
 
-  let verb = 'gesprochen';
-  if (art?.id === 'telefon') verb = 'telefoniert';
-  if (art?.id === 'ruecksprache') verb = 'Rücksprache gehalten';
-
-  return `Ich habe mit ${person} ${verb}.`.replace(/\s+/g,' ').trim();
+  return `Ich habe mit ${person} telefoniert.`.replace(/\s+/g,' ').trim();
 }
 
 function gespraechsartText(id) {
@@ -2463,12 +2551,30 @@ function baueListe(statusGroup, listGroup, label, verbraucht) {
   return '';
 }
 
-function baueSammelwert(gruppe, prefix, verbraucht) {
+function infektAngabeFehlt() {
+  const status = selectedByGroup('infekte_status');
+  const liste = selectedAllByGroup('infekte_liste');
+  return !status && !liste.length;
+}
+
+function infektWarnhinweis() {
+  return '⚠ Bitte den Punkt „Infekte“ bearbeiten. Es wurde weder ein Infekt ausgewählt noch „Keine Infekte bekannt“ bestätigt.';
+}
+
+function updateCopyButtonSperre() {
+  const btn = document.getElementById('copyBtn');
+  if (!btn) return;
+  const gesperrt = infektAngabeFehlt();
+  btn.disabled = gesperrt;
+  btn.title = gesperrt ? 'Kopieren erst möglich, wenn der Punkt „Infekte“ bearbeitet wurde.' : '';
+}
+
+function baueSammelwert(gruppe, prefix, verbraucht, suffix = '') {
   const items = selectedAllByGroup(gruppe).filter(k => k.bericht);
   if (!items.length) return '';
   items.forEach(k => verbraucht.add(k.id));
-  const werte = items.map(k => k.bericht);
-  return prefix + joinGerman(werte) + '.';
+  const werte = items.map(k => k.id === 'erinnerungsstuecke' ? 'eigene Erinnerungsstücke' : k.bericht);
+  return prefix + joinGerman(werte) + suffix + '.';
 }
 
 function joinGerman(arr) {
@@ -2577,10 +2683,18 @@ function baueBilder(verbraucht) {
   const naechsteTage = naechsteTageDirekt || zeitfenster.some(k => k.id === 'bilder_naechste_tage');
   const geschwisterUnklar = geschwisterUnklarDirekt || unklar.some(k => k.id === 'geschwister_bilder_unklar');
 
-  if (bilderNein) parts.push('Die Eltern möchten nicht bei den Bildern dabei sein.');
-  if (bilderUnklar) parts.push('Ob die Eltern bei den Bildern dabei sein möchten, ist aktuell nicht bekannt.');
-  if (geschwisterNein) parts.push('Geschwister werden bei den Bildern nicht dabei sein.');
-  if (naechsteTage) parts.push('Bilder sind auch in den nächsten Tagen möglich.');
+  if (bilderNein) {
+    parts.push('Die Eltern möchten nicht bei den Bildern dabei sein.');
+    genutzt.add('gemeinsame_bilder_nein');
+  }
+  if (bilderUnklar) {
+    parts.push('Ob die Eltern bei den Bildern dabei sein möchten, ist aktuell nicht bekannt.');
+    genutzt.add('gemeinsame_bilder_unklar');
+  }
+  if (naechsteTage) {
+    parts.push('Bilder sind auch in den nächsten Tagen möglich.');
+    genutzt.add('bilder_naechste_tage');
+  }
 
   // Neutral: kein harter Bezug "mit ihrem Kind" mehr.
   if (hatGemeinsame && hatGeschwister && nurHeute) {
@@ -2596,10 +2710,11 @@ function baueBilder(verbraucht) {
     parts.push('Die Eltern möchten bei den Bildern dabei sein, welche auch morgen noch möglich sind; ob auch Geschwister bei den Bildern dabei sein werden, ist aktuell noch unklar.');
     ['gemeinsame_bilder_gewuenscht','gemeinsame_bilder_kind','geschwister_bilder_unklar','bilder_morgen'].forEach(id => genutzt.add(id));
   } else if (hatGemeinsame && hatGeschwister) {
-    parts.push('Die Eltern und Geschwister möchten bei den Bildern dabei sein.');
+    parts.push('Die Eltern und die Geschwister werden bei den Bildern dabei sein.');
     ['gemeinsame_bilder_gewuenscht','gemeinsame_bilder_kind','geschwister_vermutlich'].forEach(id => genutzt.add(id));
   } else if (hatGemeinsame && geschwisterUnklar) {
-    parts.push('Die Eltern möchten bei den Bildern dabei sein, wobei aktuell noch unklar ist, ob auch Geschwister bei den Bildern dabei sein werden.');
+    parts.push('Die Eltern möchten bei den Bildern dabei sein.');
+    parts.push('Aktuell ist noch unklar, ob die Geschwister ebenfalls dazukommen.');
     ['gemeinsame_bilder_gewuenscht','gemeinsame_bilder_kind','geschwister_bilder_unklar'].forEach(id => genutzt.add(id));
   } else if (hatGemeinsame && nurHeute) {
     parts.push('Die Eltern möchten bei den Bildern dabei sein, welche jedoch nur heute möglich sind.');
@@ -2611,6 +2726,8 @@ function baueBilder(verbraucht) {
 
   familie.forEach(k => {
     if (genutzt.has(k.id)) return;
+    if (k.id === 'geschwister_nein') return;
+    if (k.id === 'geschwister_nein') return;
 
     if (k.id === 'gemeinsame_bilder_gewuenscht' || k.id === 'gemeinsame_bilder_kind') {
       parts.push('Die Eltern möchten bei den Bildern dabei sein.');
@@ -2629,6 +2746,10 @@ function baueBilder(verbraucht) {
     if (genutzt.has(k.id)) return;
     if (k.bericht) parts.push(clean(k.bericht));
   });
+
+  if (geschwisterNein) {
+    genutzt.add('geschwister_nein');
+  }
 
   return parts.map(withDot).join(' ');
 }
@@ -2699,6 +2820,58 @@ function baueEinleitung(verbraucht) {
   return '';
 }
 
+
+function baueMehrlingssituationText(verbraucht) {
+  const eintrag = selectedByGroup('mehrlingsstatus');
+  if (!eintrag) return '';
+
+  const id = String(eintrag.id || '').toLowerCase();
+  const anzeige = String(eintrag.anzeige || '').toLowerCase();
+
+  let text = '';
+
+  // Einling – kritischer Zustand
+  if (id === 'ein_kind_kritisch' || anzeige.includes('ein kind') && anzeige.includes('kritischer zustand')) {
+    text = 'Es geht um ein Kind in kritischem Zustand.';
+  }
+
+  // Zwillinge – verstorben/lebt
+  else if (id === 'zwillinge_beide_verstorben' || anzeige.includes('zwillinge') && anzeige.includes('beide') && anzeige.includes('verstorben')) {
+    text = 'Es geht um Zwillinge, die beide verstorben sind.';
+  } else if (id === 'zwillinge_eins_verstorben' || anzeige.includes('zwillinge') && anzeige.includes('ein kind verstorben') && anzeige.includes('ein kind lebt')) {
+    text = 'Es geht um Zwillinge, von denen ein Kind verstorben ist und ein Kind lebt.';
+  }
+
+  // Zwillinge – kritischer Zustand
+  else if (id === 'zwillinge_beide_kritisch' || anzeige.includes('zwillinge') && anzeige.includes('kritischer zustand beider kinder')) {
+    text = 'Es geht um Zwillinge, die beide in kritischem Zustand sind.';
+  } else if (id === 'zwillinge_ein_kind_kritisch' || anzeige.includes('zwillinge') && anzeige.includes('kritischer zustand eines kindes')) {
+    text = 'Es geht um Zwillinge, von denen ein Kind in kritischem Zustand ist.';
+  }
+
+  // Drillinge – verstorben/lebt
+  else if (id === 'drillinge_alle_verstorben' || anzeige.includes('drillinge') && (anzeige.includes('drei kinder verstorben') || anzeige.includes('alle verstorben'))) {
+    text = 'Es geht um Drillinge, die alle verstorben sind.';
+  } else if (id === 'drillinge_zwei_verstorben_eins_lebt' || anzeige.includes('drillinge') && anzeige.includes('zwei kinder verstorben') && anzeige.includes('ein kind lebt')) {
+    text = 'Es geht um Drillinge, von denen zwei Kinder verstorben sind und ein Kind lebt.';
+  } else if (id === 'drillinge_ein_verstorben_zwei_leben' || anzeige.includes('drillinge') && anzeige.includes('ein kind verstorben') && anzeige.includes('zwei kinder leben')) {
+    text = 'Es geht um Drillinge, von denen ein Kind verstorben ist und zwei Kinder leben.';
+  }
+
+  // Drillinge – kritischer Zustand
+  else if (id === 'drillinge_alle_kritisch' || anzeige.includes('drillinge') && anzeige.includes('kritischer zustand aller kinder')) {
+    text = 'Es geht um Drillinge, die alle in kritischem Zustand sind.';
+  } else if (id === 'drillinge_zwei_kinder_kritisch' || anzeige.includes('drillinge') && anzeige.includes('kritischer zustand zweier kinder')) {
+    text = 'Es geht um Drillinge, von denen zwei Kinder in kritischem Zustand sind.';
+  } else if (id === 'drillinge_ein_kind_kritisch' || anzeige.includes('drillinge') && anzeige.includes('kritischer zustand eines kindes')) {
+    text = 'Es geht um Drillinge, von denen ein Kind in kritischem Zustand ist.';
+  }
+
+  if (text && verbraucht) verbraucht.add(eintrag.id);
+  return text;
+}
+
+
 function baueBericht() {
   updateKinderHandOptions();
   updateMehrlingsSituationOptions();
@@ -2736,15 +2909,9 @@ function baueBericht() {
   });
 
   const mehrlingsstatus = selectedByGroup('mehrlingsstatus');
+  pushIf(abschnitte, baueMehrlingssituationText(verbraucht));
   selectedAllByGroup('mehrlingsstatus').forEach(k => verbraucht.add(k.id));
-  if (mehrlingsstatus && mehrlingsstatus.id !== 'einling') {
-    selectedAllByGroup('mehrlingssituation').forEach(k => {
-      verbraucht.add(k.id);
-      if (k.bericht) pushIf(abschnitte, k.bericht);
-    });
-  } else {
-    selectedAllByGroup('mehrlingssituation').forEach(k => verbraucht.add(k.id));
-  }
+  selectedAllByGroup('mehrlingssituation').forEach(k => verbraucht.add(k.id));
 
   ['familienstruktur','aktuelle_situation_status'].forEach(gruppe => {
     selectedAllByGroup(gruppe).forEach(k => {
@@ -2760,7 +2927,7 @@ function baueBericht() {
 
   // 6 Kleidung
   pushIf(abschnitte, baueKleidung(verbraucht));
-  pushIf(abschnitte, baueSammelwert('eltern_bringen_mit', 'Die Eltern bringen ', verbraucht));
+  pushIf(abschnitte, baueSammelwert('eltern_bringen_mit', 'Die Eltern bringen ', verbraucht, ' mit'));
   pushIf(abschnitte, ergaenzungValue('ergaenzung_kleidung'));
 
   // 7 Bilder
@@ -2779,7 +2946,11 @@ function baueBericht() {
   pushIf(abschnitte, ergaenzungValue('ergaenzung_kommunikation'));
 
   // 10 Infekte
-  pushIf(abschnitte, baueListe('infekte_status','infekte_liste','Infekte', verbraucht));
+  if (infektAngabeFehlt()) {
+    pushIf(abschnitte, infektWarnhinweis());
+  } else {
+    pushIf(abschnitte, baueListe('infekte_status','infekte_liste','Infekte', verbraucht));
+  }
   pushIf(abschnitte, ergaenzungValue('ergaenzung_infekte'));
 
   // Zusätzliche Ergänzungsfelder, die nicht fest in der Berichtlogik benannt sind.
@@ -2924,10 +3095,54 @@ function updateAbschlussfrageLogik() {
   return;
 }
 
+function istLebendbilderSituation() {
+  return FLOW_SITUATION === 'lebt';
+}
+
+function updateWassermethodeSichtbarkeit() {
+  const step = document.getElementById('step-wassermethode');
+  if (!step) return;
+
+  if (istLebendbilderSituation()) {
+    // Bei Lebendbildern wird die Wassermethode fachlich nicht abgefragt.
+    step.classList.remove('visible', 'active', 'open', 'done');
+    step.classList.add('hidden');
+
+    step.querySelectorAll('select, input, textarea').forEach(el => {
+      if (el.type === 'checkbox' || el.type === 'radio') {
+        el.checked = false;
+      } else {
+        el.value = '';
+      }
+    });
+
+    const state = step.querySelector('.state');
+    if (state) state.textContent = 'öffnen';
+  } else {
+    step.classList.remove('hidden');
+  }
+}
+
+
+function infektIstGueltig() {
+  return !infektAngabeFehlt();
+}
+
+function updateInfektStatusfarbe() {
+  const step = document.getElementById('step-infekte');
+  if (!step) return;
+
+  const wurdeGeoeffnet = step.dataset.wasOpened === 'true';
+  const unvollstaendig = !infektIstGueltig();
+
+  step.classList.toggle('warn', wurdeGeoeffnet && unvollstaendig);
+}
+
 function aktualisieren() {
   try {
     applyExcludeLogik();
     updateGeschwisterBilderVisibility();
+    updateWassermethodeSichtbarkeit();
     updateAbschlussfrageLogik();
   } catch (err) {
     console.warn('Flow-Hinweis: applyExcludeLogik konnte nicht ausgeführt werden.', err);
@@ -2944,16 +3159,35 @@ function aktualisieren() {
     text = baueFlowVorschau();
   }
 
-  document.getElementById('bericht').innerText = text || 'Bitte links mit dem Gespräch beginnen.';
+  const berichtEl = document.getElementById('bericht');
+  const berichtIstLeer = !String(berichtEl.innerText || '').trim();
+
+  if (berichtIstLeer) {
+    berichtManuellBearbeitet = false;
+  }
+
+  if (!berichtManuellBearbeitet && document.activeElement !== berichtEl) {
+    berichtEl.innerText = text || 'Bitte links mit dem Gespräch beginnen.';
+  }
+  updateCopyButtonSperre();
+  updateInfektStatusfarbe();
 }
 
 
 
 function kopieren() {
+  if (infektAngabeFehlt()) {
+    updateCopyButtonSperre();
+    return;
+  }
   navigator.clipboard.writeText(document.getElementById('bericht').innerText).then(() => {
     const btn = document.getElementById('copyBtn');
     const alt = btn.innerText;
     btn.innerText = 'Kopiert';
+
+    const clearBtn = document.getElementById('clearBtn');
+    if (clearBtn) clearBtn.disabled = false;
+
     setTimeout(() => btn.innerText = alt, 1200);
   });
 }
@@ -2971,11 +3205,15 @@ function makeStep(id, title, buildContent, nextId=null) {
     if (!article.classList.contains('visible')) return;
 
     article.classList.toggle('open');
+    if (article.id === 'step-infekte') {
+      article.dataset.wasOpened = 'true';
+    }
     if (article.classList.contains('open')) {
       article.classList.add('active');
     } else {
       article.classList.remove('active');
     }
+    if (typeof updateInfektStatusfarbe === 'function') updateInfektStatusfarbe();
 
     head.querySelector('.state').textContent = article.classList.contains('open') ? 'schließen' : 'öffnen';
   });
@@ -3071,6 +3309,10 @@ function activate(id) {
   const el = document.getElementById(id);
   if (!el) return;
 
+  if (id === 'step-infekte') {
+    el.dataset.wasOpened = 'true';
+  }
+
   // Aktiver Schritt ist sichtbar und geöffnet, aber nur grün bei echter Eingabe.
   el.classList.add('visible', 'active', 'open');
 
@@ -3084,6 +3326,7 @@ function activate(id) {
   setTimeout(() => el.scrollIntoView({behavior:'smooth', block:'center'}), 40);
   updateBottomNextLabels();
   aktualisieren();
+  if (typeof updateInfektStatusfarbe === 'function') updateInfektStatusfarbe();
 }
 
 function done(id) {
@@ -3102,11 +3345,12 @@ function done(id) {
 
   const state = el.querySelector('.state');
   if (state) state.textContent = 'öffnen';
+  if (typeof updateInfektStatusfarbe === 'function') updateInfektStatusfarbe();
 }
 
 function nextStep(currentId, nextId) {
   done(currentId);
-  if (nextId === 'step-wassermethode' && FLOW_SITUATION === 'lebt') {
+  if (nextId === 'step-wassermethode' && istLebendbilderSituation()) {
     activate('step-kommunikation');
     return;
   }
@@ -3125,7 +3369,7 @@ function updateBottomNextLabels() {
     if (!btn) return;
 
     let nextId = step.dataset.nextId;
-    if (nextId === 'step-wassermethode' && FLOW_SITUATION === 'lebt') {
+    if (nextId === 'step-wassermethode' && istLebendbilderSituation()) {
       nextId = 'step-kommunikation';
     }
 
@@ -3199,6 +3443,7 @@ function chooseFlowSituation(value, btn) {
   if (value === 'kaiserschnitt') activate('step-kaiserschnitt');
   if (value === 'geboren_verstorben') activate('step-besonderheiten');
 
+  updateWassermethodeSichtbarkeit();
   updateAbschlussfrageLogik();
   updateBottomNextLabels();
 }
@@ -3497,7 +3742,7 @@ function renderKleidungFlow(content) {
   const erinnerung = document.createElement('label');
   erinnerung.className = 'option checkbox-card';
   erinnerung.innerHTML = `
-    <input type="checkbox" id="erinnerungsstuecke" data-satzgruppe="eltern_bringen_mit">
+    <input type="checkbox" id="erinnerungsstuecke" value="erinnerungsstuecke" data-satzgruppe="eltern_bringen_mit">
     <span class="checkbox-content">
       <span class="checkbox-title">Die Eltern bringen eigene Erinnerungsstücke mit.</span>
     </span>
@@ -3576,7 +3821,7 @@ function renderBilderFlow(content) {
 function renderWassermethodeFlow(content) {
   const klinikHint = document.createElement('div');
   klinikHint.className = 'wasser-klinik-hinweis lf-hint-text';
-  klinikHint.innerHTML = '<strong>Hinweis:</strong> Unikliniken Freiburg, Bonn und Münster bitte nicht nach der Wassermethode fragen.';
+  klinikHint.innerHTML = '<strong>Hinweis:</strong> In den Unikliniken Freiburg, Bonn, Münster, dem AKH Wien sowie dem Uniklinikum Linz bitte nicht nach der Wassermethode fragen.';
   content.appendChild(klinikHint);
 
   const field = document.createElement('div');
@@ -3657,7 +3902,7 @@ function renderFlow() {
   }, 'step-ansprechpartner'));
 
   flow.appendChild(makeStep('step-ansprechpartner', 'Mit wem spreche ich?', c => {
-    renderBlatt('2_Ansprechpartner', c);
+    renderBlatt('2_Ansprechpartner', c, ['ansprechpartner_rolle','ansprechpartner_beschreibung']);
 
     const roleField = c.querySelector('[data-satzgruppe="ansprechpartner_rolle"]');
     const roleTitle = roleField?.querySelector('.field-title');
@@ -3711,7 +3956,7 @@ function renderFlow() {
     renderKleidungFlow(c);
   }, 'step-bilder'));
 
-  flow.appendChild(makeStep('step-bilder', 'Bilder', c => {
+  flow.appendChild(makeStep('step-bilder', 'Wer ist bei den Bildern dabei?', c => {
     renderBilderFlow(c);
   }, 'step-wassermethode'));
 
